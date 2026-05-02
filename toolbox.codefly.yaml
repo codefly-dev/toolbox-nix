@@ -1,0 +1,33 @@
+name: nix
+version: 0.0.1
+description: |
+  Nix flake introspection and (read-only) expression evaluation as
+  typed RPCs. Canonical owner of the `nix` binary — the bash
+  toolbox refuses every `nix` invocation and routes here.
+
+  Phase 1: flake_metadata, flake_show, eval. All read-only — eval
+  uses --read-only which forbids store mutations during evaluation.
+
+agent:
+  kind: codefly:toolbox
+  name: nix
+  publisher: codefly.dev
+  version: 0.0.1
+
+sandbox:
+  read_paths:
+    - "/nix/store"
+    - "${WORKSPACE}"
+  write_paths:
+    - "/nix/store"
+    - "/tmp"
+  # Network: nix may fetch flake inputs from substituters on first
+  # access. The toolbox doesn't restrict; the host's policy can
+  # tighten via OS sandbox if needed.
+  network: allow
+  unix_sockets: []
+
+canonical_for:
+  - nix
+
+spec: {}

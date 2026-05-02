@@ -1,0 +1,7 @@
+go.work
+go.work.sum
+/toolbox-nix
+/cmd/toolbox-nix/toolbox-nix
+.DS_Store
+.idea/
+.vscode/
