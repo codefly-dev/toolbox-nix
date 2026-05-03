@@ -2,6 +2,7 @@ package nix_test
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	"github.com/stretchr/testify/require"
@@ -67,8 +68,13 @@ func TestNix_Eval_RequiresExpr(t *testing.T) {
 	})
 	require.NoError(t, err)
 	require.NotEmpty(t, resp.Error)
-	require.Contains(t, resp.Error, "expr is required",
-		"missing expr must be surfaced cleanly, not a binary error")
+	// As of core@v0.1.159, registry.Base auto-validates against
+	// InputSchema BEFORE dispatch. The JSON Schema validator names
+	// the missing field via "missing property 'expr'"; either form
+	// gives the model a clear retry hint.
+	require.True(t,
+		strings.Contains(resp.Error, "expr") || strings.Contains(resp.Error, "required"),
+		"missing expr must surface a clear hint; got %q", resp.Error)
 }
 
 func TestNix_BinaryNotFound_ProducesActionableError(t *testing.T) {
