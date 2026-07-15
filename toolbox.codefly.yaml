@@ -1,5 +1,5 @@
 name: nix
-version: 0.0.1
+version: 0.0.9
 description: |
   Nix flake introspection and (read-only) expression evaluation as
   typed RPCs. Canonical owner of the `nix` binary — the bash
@@ -12,7 +12,7 @@ agent:
   kind: codefly:toolbox
   name: nix
   publisher: codefly.dev
-  version: 0.0.1
+  version: 0.0.9
 
 sandbox:
   read_paths:

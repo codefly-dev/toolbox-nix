@@ -9,8 +9,6 @@ import (
 	"strings"
 	"time"
 
-	"google.golang.org/protobuf/types/known/structpb"
-
 	toolboxv0 "github.com/codefly-dev/core/generated/go/codefly/services/toolbox/v0"
 	"github.com/codefly-dev/core/toolbox/registry"
 	"github.com/codefly-dev/core/toolbox/respond"
@@ -38,8 +36,6 @@ const MaxEvalOutputBytes = 4 * 1024 * 1024 // 4 MiB
 type Server struct {
 	*registry.Base
 
-	version string
-
 	// nixBinary lets tests inject a fake nix path. Empty means "use
 	// PATH lookup of `nix`."
 	nixBinary string
@@ -47,8 +43,14 @@ type Server struct {
 
 // New returns a Server.
 func New(version string) *Server {
-	s := &Server{version: version}
-	s.Base = registry.NewBase(s)
+	s := &Server{}
+	s.Base = registry.NewBase(registry.Descriptor{
+		Name:           "nix",
+		Version:        version,
+		Description:    "Nix flake introspection and evaluation. Canonical owner of the `nix` binary.",
+		CanonicalFor:   []string{"nix"},
+		SandboxSummary: "reads /nix/store; writes /nix/store + /tmp; network: nix substituters only",
+	}, s.Tools()...)
 	return s
 }
 
@@ -58,18 +60,6 @@ func New(version string) *Server {
 func (s *Server) WithBinary(path string) *Server {
 	s.nixBinary = path
 	return s
-}
-
-// --- Identity ----------------------------------------------------
-
-func (s *Server) Identity(_ context.Context, _ *toolboxv0.IdentityRequest) (*toolboxv0.IdentityResponse, error) {
-	return &toolboxv0.IdentityResponse{
-		Name:           "nix",
-		Version:        s.version,
-		Description:    "Nix flake introspection and evaluation. Canonical owner of the `nix` binary.",
-		CanonicalFor:   []string{"nix"},
-		SandboxSummary: "reads /nix/store; writes /nix/store + /tmp; network: nix substituters only",
-	}, nil
 }
 
 // --- Tools -------------------------------------------------------
@@ -95,18 +85,18 @@ func (s *Server) Tools() []*registry.ToolDefinition {
 					},
 				},
 			}),
-			Tags:        []string{"nix", "read-only", "filesystem"},
+			Tags:        []string{"read-only", "filesystem"},
 			Idempotency: "idempotent",
 			ErrorModes:  "Returns 'nix flake metadata: ...' wrapping nix's own error — typically 'no flake.nix found', 'unable to download', or 'invalid flake output'.",
 			Examples: []*toolboxv0.ToolExample{
 				{
 					Description:     "Read metadata of the current directory's flake.",
-					Arguments:       mustNixStruct(map[string]any{}),
+					Arguments:       respond.MustStruct(map[string]any{}),
 					ExpectedOutcome: "Object with description, lastModified, narHash, original (the flake ref).",
 				},
 				{
 					Description:     "Read a remote flake by URL.",
-					Arguments:       mustNixStruct(map[string]any{"flake": "github:NixOS/nixpkgs/nixos-24.05"}),
+					Arguments:       respond.MustStruct(map[string]any{"flake": "github:NixOS/nixpkgs/nixos-24.05"}),
 					ExpectedOutcome: "Same shape; may be slow on first invocation due to fetch.",
 				},
 			},
@@ -127,13 +117,13 @@ func (s *Server) Tools() []*registry.ToolDefinition {
 					},
 				},
 			}),
-			Tags:        []string{"nix", "read-only", "filesystem"},
+			Tags:        []string{"read-only", "filesystem"},
 			Idempotency: "idempotent",
 			ErrorModes:  "Returns 'nix flake show: ...' wrapping nix's error — typically a malformed flake or missing input.",
 			Examples: []*toolboxv0.ToolExample{
 				{
 					Description:     "Show the current dir's flake outputs.",
-					Arguments:       mustNixStruct(map[string]any{}),
+					Arguments:       respond.MustStruct(map[string]any{}),
 					ExpectedOutcome: "{ outputs: { packages: {...}, devShells: {...}, apps: {...} } }",
 				},
 			},
@@ -165,32 +155,24 @@ func (s *Server) Tools() []*registry.ToolDefinition {
 				},
 				"required": []any{"expr"},
 			}),
-			Tags:        []string{"nix", "read-only"},
+			Tags:        []string{"read-only"},
 			Idempotency: "idempotent",
 			ErrorModes:  "Returns 'nix eval: ...' wrapping nix's error — typically 'syntax error', 'infinite recursion', 'undefined variable', or timeout.",
 			Examples: []*toolboxv0.ToolExample{
 				{
 					Description:     "Trivial arithmetic.",
-					Arguments:       mustNixStruct(map[string]any{"expr": "1 + 2"}),
+					Arguments:       respond.MustStruct(map[string]any{"expr": "1 + 2"}),
 					ExpectedOutcome: "{ value: 3, truncated: false }",
 				},
 				{
 					Description:     "Read a config value.",
-					Arguments:       mustNixStruct(map[string]any{"expr": "builtins.toJSON { name = \"hello\"; }"}),
+					Arguments:       respond.MustStruct(map[string]any{"expr": "builtins.toJSON { name = \"hello\"; }"}),
 					ExpectedOutcome: "{ value: '{\"name\":\"hello\"}', truncated: false }",
 				},
 			},
 			Handler: s.eval,
 		},
 	}
-}
-
-func mustNixStruct(m map[string]any) *structpb.Struct {
-	s, err := structpb.NewStruct(m)
-	if err != nil {
-		panic(fmt.Sprintf("nix toolbox: cannot encode example args: %v", err))
-	}
-	return s
 }
 
 // --- Tool implementations ----------------------------------------

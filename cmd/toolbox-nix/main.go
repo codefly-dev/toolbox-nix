@@ -12,26 +12,15 @@
 package main
 
 import (
-	"os"
-
 	"github.com/codefly-dev/core/agents"
+	coretoolbox "github.com/codefly-dev/core/toolbox"
 	nix "github.com/codefly-dev/toolbox-nix"
 )
 
 func main() {
-	version := envOrDefault("CODEFLY_TOOLBOX_VERSION", "0.0.0-dev")
-	server := nix.New(version)
-	if bin := os.Getenv("CODEFLY_TOOLBOX_NIX_BIN"); bin != "" {
+	server := nix.New(coretoolbox.Version())
+	if bin := coretoolbox.Environment("CODEFLY_TOOLBOX_NIX_BIN", ""); bin != "" {
 		server = server.WithBinary(bin)
 	}
-	agents.Serve(agents.PluginRegistration{
-		Toolbox: server,
-	})
-}
-
-func envOrDefault(key, def string) string {
-	if v := os.Getenv(key); v != "" {
-		return v
-	}
-	return def
+	agents.ServeToolbox(server)
 }
