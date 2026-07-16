@@ -1,5 +1,5 @@
 name: nix
-version: 0.0.9
+version: 0.0.10
 description: |
   Nix flake introspection and (read-only) expression evaluation as
   typed RPCs. Canonical owner of the `nix` binary — the bash
@@ -12,7 +12,7 @@ agent:
   kind: codefly:toolbox
   name: nix
   publisher: codefly.dev
-  version: 0.0.9
+  version: 0.0.10
 
 sandbox:
   read_paths:
@@ -24,10 +24,19 @@ sandbox:
   # Network: nix may fetch flake inputs from substituters on first
   # access. The toolbox doesn't restrict; the host's policy can
   # tighten via OS sandbox if needed.
-  network: allow
+  network: open
   unix_sockets: []
 
 canonical_for:
   - nix
+
+permissions:
+  required:
+    - action: nix.flake_metadata
+      reason: Read pinned flake identity and metadata.
+    - action: nix.flake_show
+      reason: Read the outputs exposed by a flake.
+    - action: nix.eval
+      reason: Evaluate a Nix expression in read-only mode.
 
 spec: {}
